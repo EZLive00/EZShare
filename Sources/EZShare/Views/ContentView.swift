@@ -51,22 +51,8 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Palette.accent, Palette.accentAlt],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 34, height: 34)
-                    .shadow(color: Palette.accent.opacity(0.35), radius: 9, x: 0, y: 4)
-                Image(systemName: "square.and.arrow.up.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .offset(y: -0.5)
-            }
+            BrandMark(size: 34)
+                .shadow(color: Palette.accent.opacity(0.35), radius: 9, x: 0, y: 4)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("EZShare")

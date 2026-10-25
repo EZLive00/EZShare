@@ -59,41 +59,46 @@ context.drawRadialGradient(
     options: []
 )
 
-// 白色“上传/共享”图形
+// 白色“上传/共享”图形 —— 与网页端 brandMark SVG 完全同一几何：
+// viewBox 24×24，箭杆 M12 15.5V4，箭头 M7.8 8.2L12 4l4.2 4.2，
+// 托盘 M4.6 14v4.2 圆角接 h11 收回，描边 1.9，圆头圆角。
+// 映射：scale = 34，ox = 104，oy = 89（y 轴翻转，整体居中）。
 let white = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
 context.setStrokeColor(white)
-context.setLineWidth(58)
+context.setLineWidth(1.9 * 34)          // ≈ 65
 context.setLineCap(.round)
 context.setLineJoin(.round)
 
+func px(_ x: CGFloat) -> CGFloat { 104 + x * 34 }
+func py(_ y: CGFloat) -> CGFloat { 89 + (24 - y) * 34 }
+
 // 箭杆
-context.move(to: CGPoint(x: 512, y: 610))
-context.addLine(to: CGPoint(x: 512, y: 252))
+context.move(to: CGPoint(x: px(12), y: py(15.5)))
+context.addLine(to: CGPoint(x: px(12), y: py(4)))
 context.strokePath()
 
 // 箭头
-context.move(to: CGPoint(x: 372, y: 388))
-context.addLine(to: CGPoint(x: 512, y: 248))
-context.addLine(to: CGPoint(x: 652, y: 388))
+context.move(to: CGPoint(x: px(7.8), y: py(8.2)))
+context.addLine(to: CGPoint(x: px(12), y: py(4)))
+context.addLine(to: CGPoint(x: px(16.2), y: py(8.2)))
 context.strokePath()
 
-// 托盘
-let tray = CGMutablePath()
-tray.move(to: CGPoint(x: 296, y: 660))
-tray.addLine(to: CGPoint(x: 296, y: 736))
-tray.addCurve(
-    to: CGPoint(x: 396, y: 836),
-    control1: CGPoint(x: 296, y: 791),
-    control2: CGPoint(x: 341, y: 836)
+// 托盘（两个圆角用三次贝塞尔近似，k ≈ 0.5523 × r）
+let k: CGFloat = 0.5523 * 1.9 * 34      // ≈ 35.7
+context.move(to: CGPoint(x: px(4.6), y: py(14)))
+context.addLine(to: CGPoint(x: px(4.6), y: py(18.2)))
+context.addCurve(
+    to: CGPoint(x: px(6.5), y: py(20.1)),
+    control1: CGPoint(x: px(4.6), y: py(18.2) - k),
+    control2: CGPoint(x: px(6.5) - k, y: py(20.1))
 )
-tray.addLine(to: CGPoint(x: 628, y: 836))
-tray.addCurve(
-    to: CGPoint(x: 728, y: 736),
-    control1: CGPoint(x: 683, y: 836),
-    control2: CGPoint(x: 728, y: 791)
+context.addLine(to: CGPoint(x: px(17.5), y: py(20.1)))
+context.addCurve(
+    to: CGPoint(x: px(19.4), y: py(18.2)),
+    control1: CGPoint(x: px(17.5) + k, y: py(20.1)),
+    control2: CGPoint(x: px(19.4), y: py(18.2) - k)
 )
-tray.addLine(to: CGPoint(x: 728, y: 660))
-context.addPath(tray)
+context.addLine(to: CGPoint(x: px(19.4), y: py(14)))
 context.strokePath()
 
 let image = context.makeImage()!
