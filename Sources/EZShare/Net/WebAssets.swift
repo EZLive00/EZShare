@@ -104,10 +104,18 @@ td.actions{text-align:right;white-space:nowrap;width:1%}
 tr:hover .act{opacity:1}
 @media (max-width:720px){
   td.time,th.time{display:none}
+  td.size,th.size{display:none}
+  thead th,tbody td{padding-left:12px;padding-right:12px}
   .act{opacity:1}
   .brand .sub{display:none}
+  .topbar .chip{display:none}
+  .topbar-inner{padding:11px 14px;gap:8px}
   main{padding:14px 12px 80px}
-  .topbar-inner{padding:11px 14px}
+  .toolbar{flex-wrap:wrap;gap:8px;padding:10px 12px}
+  .toolbar .search{flex:1 1 100%;order:-1}
+  .toolbar .count{flex:1;min-width:0}
+  .btn{height:34px;padding:0 13px}
+  #dock{left:12px;right:12px;width:auto}
 }
 .empty{padding:64px 20px;text-align:center;color:var(--muted)}
 .empty svg{width:44px;height:44px;stroke:currentColor;fill:none;stroke-width:1.3;opacity:.5}
