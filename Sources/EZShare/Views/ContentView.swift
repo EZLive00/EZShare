@@ -31,9 +31,15 @@ struct ContentView: View {
             .padding(.bottom, 18)
         }
         .frame(minWidth: 940, minHeight: 640)
-        .onAppear { model.refreshAddresses() }
+        .onAppear {
+            model.refreshAddresses()
+            model.refreshTextCount()
+        }
         .onReceive(refreshTimer) { _ in
-            if model.isRunning { model.refreshAddresses() }
+            if model.isRunning {
+                model.refreshAddresses()
+                model.refreshTextCount()
+            }
         }
     }
 
@@ -122,6 +128,7 @@ struct ContentView: View {
 
             HStack(spacing: 7) {
                 ValueChip(text: "\(model.folderItemCount) 个项目")
+                ValueChip(text: "文本 \(model.textCount) 条")
                 ValueChip(text: model.allowUpload ? "可上传" : "只读")
                 ValueChip(text: model.requireCode ? "需访问码" : "开放访问")
                 Spacer(minLength: 0)

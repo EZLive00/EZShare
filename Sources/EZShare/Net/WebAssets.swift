@@ -160,6 +160,29 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
 .login input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
 .login .err{margin:10px 0 0;color:#e5484d;font-size:12.5px}
 .login button{width:100%;height:40px;margin-top:14px;border-radius:10px;background:linear-gradient(135deg,#3b74ff,#2f6bff);color:#fff;font-weight:600;font-size:14px;box-shadow:0 8px 18px -10px rgba(47,107,255,.9)}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tab{padding:5px 13px;border-radius:9px;font-size:13px;font-weight:550;color:var(--muted);transition:.15s}
+.tab:hover{background:var(--hover);color:var(--text)}
+.tab.active{background:var(--accent-soft);color:var(--accent)}
+@media (max-width:720px){.tab{padding:4px 10px}.tabs{margin-left:2px}}
+
+/* ---------- text sharing ---------- */
+.composer{padding:14px 16px}
+.composer textarea{width:100%;min-height:100px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--panel-soft);color:var(--text);padding:10px 12px;font:inherit;font-size:13.5px;line-height:1.55;outline:0}
+.composer textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+.composer-foot{display:flex;align-items:center;gap:10px;margin-top:10px}
+.composer-foot .spacer{flex:1}
+.snippet{padding:12px 16px;border-bottom:1px solid var(--line-soft)}
+.snippet:last-child{border-bottom:0}
+.snippet:hover{background:var(--hover)}
+.s-head{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11.5px;margin-bottom:6px}
+.s-head .spacer{flex:1}
+.s-body{white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.55;max-height:260px;overflow:auto}
+.snippet .act{opacity:0;transition:.15s}
+.snippet:hover .act{opacity:1}
+@media (max-width:720px){.snippet .act{opacity:1}}
 """#
 
     static let js = #"""
@@ -385,6 +408,73 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
       enqueue(files);
     });
   }
+  /* ---------- text sharing ---------- */
+  var textInput = $('#text-input');
+  if (textInput) {
+    var chars = $('#text-chars');
+    textInput.addEventListener('input', function () {
+      if (chars) chars.textContent = textInput.value.length + ' 字符';
+    });
+    textInput.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); sendText(); }
+    });
+    var sendBtn = $('#btn-text-send');
+    if (sendBtn) sendBtn.addEventListener('click', sendText);
+  }
+
+  function sendText() {
+    var input = $('#text-input');
+    var btn = $('#btn-text-send');
+    if (!input || !input.value.trim()) { toast('内容为空'); return; }
+    if (btn) btn.disabled = true;
+    fetch('/api/texts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: input.value })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) location.reload();
+      else { toast(res.error || '发送失败'); if (btn) btn.disabled = false; }
+    }).catch(function () {
+      toast('网络错误');
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  var textRefresh = $('#btn-text-refresh');
+  if (textRefresh) textRefresh.addEventListener('click', function () { location.reload(); });
+
+  document.addEventListener('click', function (e) {
+    var tc = e.target.closest('[data-textcopy]');
+    if (tc) {
+      var tid = tc.getAttribute('data-textcopy');
+      fetch('/api/text?id=' + encodeURIComponent(tid))
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.ok && navigator.clipboard) {
+            navigator.clipboard.writeText(res.content);
+            toast('已复制到剪贴板');
+          } else {
+            toast(res.error || '复制失败');
+          }
+        });
+      return;
+    }
+    var tdel = e.target.closest('[data-textdel]');
+    if (tdel) {
+      var delId = tdel.getAttribute('data-textdel');
+      openModal('<h3>删除文本</h3><p>删除后无法恢复</p>' +
+        '<div class="foot"><button class="btn" data-cancel>取消</button><button class="btn danger" data-ok>删除</button></div>',
+        function () {
+          fetch('/api/text/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: delId })
+          }).then(function (r) { return r.json(); }).then(function (res) {
+            if (res.ok) location.reload(); else toast(res.error || '删除失败');
+          });
+        });
+    }
+  });
 })();
 """#
 }

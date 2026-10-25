@@ -60,12 +60,22 @@ final class Router {
         switch request.path {
         case "/":
             return handleListing(request, settings: settings)
+        case "/text":
+            return handleTextPage(request, settings: settings)
         case "/download":
             return handleDownload(request, settings: settings)
         case "/api/mkdir":
             return handleMkdir(request, settings: settings)
         case "/api/delete":
             return handleDelete(request, settings: settings)
+        case "/api/texts":
+            return handleTextCreate(request, settings: settings)
+        case "/api/text":
+            return handleTextGet(request)
+        case "/api/text/delete":
+            return handleTextDelete(request, settings: settings)
+        case "/api/text/download":
+            return handleTextDownload(request)
         case "/api/upload":
             return .json(["ok": false, "error": "上传需使用流式请求"], status: 400)
         default:
@@ -236,6 +246,83 @@ final class Router {
         guard let end = Int64(endText), end >= start else { return nil }
         return (start, min(end, size - 1))
     }
+
+    // MARK: - 文本共享
+
+    private func handleTextPage(_ request: HTTPRequest, settings: ShareSettings) -> HTTPResponse {
+        guard request.method == "GET" else {
+            return .json(["ok": false, "error": "方法不允许"], status: 405)
+        }
+        let html = WebUI.textPage(snippets: TextStore.shared.list(), settings: settings)
+        return .html(html)
+    }
+
+    private func handleTextCreate(_ request: HTTPRequest, settings: ShareSettings) -> HTTPResponse {
+        guard request.method == "POST" else {
+            return .json(["ok": false, "error": "方法不允许"], status: 405)
+        }
+        guard settings.allowUpload else {
+            return .json(["ok": false, "error": "共享端已关闭写入"], status: 403)
+        }
+        guard let content = request.jsonBody["content"] as? String else {
+            return .json(["ok": false, "error": "内容为空"], status: 400)
+        }
+        guard let snippet = TextStore.shared.add(content) else {
+            return .json(["ok": false, "error": "内容为空或超过 1MB 上限"], status: 400)
+        }
+        return .json(["ok": true, "id": snippet.id])
+    }
+
+    private func handleTextGet(_ request: HTTPRequest) -> HTTPResponse {
+        guard let id = request.query["id"], let snippet = TextStore.shared.find(id: id) else {
+            return .json(["ok": false, "error": "文本不存在"], status: 404)
+        }
+        return .json(["ok": true, "content": snippet.content, "createdAt": Self.iso8601.string(from: snippet.createdAt)])
+    }
+
+    private func handleTextDelete(_ request: HTTPRequest, settings: ShareSettings) -> HTTPResponse {
+        guard request.method == "POST" else {
+            return .json(["ok": false, "error": "方法不允许"], status: 405)
+        }
+        guard settings.allowDelete else {
+            return .json(["ok": false, "error": "共享端已关闭删除"], status: 403)
+        }
+        guard let id = request.jsonBody["id"] as? String, !id.isEmpty else {
+            return .json(["ok": false, "error": "缺少 id"], status: 400)
+        }
+        guard TextStore.shared.remove(id: id) else {
+            return .json(["ok": false, "error": "文本不存在"], status: 404)
+        }
+        return .json(["ok": true])
+    }
+
+    private func handleTextDownload(_ request: HTTPRequest) -> HTTPResponse {
+        guard let id = request.query["id"], let snippet = TextStore.shared.find(id: id) else {
+            return .html(WebUI.errorPage(status: 404, message: "文本不存在"), status: 404)
+        }
+        let name = "文本-\(Self.fileStamp.string(from: snippet.createdAt)).txt"
+        return HTTPResponse(
+            status: 200,
+            headers: [
+                "Content-Type": "text/plain; charset=utf-8",
+                "Content-Disposition": "attachment; filename=\"text.txt\"; filename*=UTF-8''\(name.urlEncoded)"
+            ],
+            body: .data(Data(snippet.content.utf8))
+        )
+    }
+
+    private static let iso8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static let fileStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter
+    }()
 
     // MARK: - 写操作
 

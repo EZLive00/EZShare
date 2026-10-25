@@ -5,7 +5,8 @@ macOS 原生局域网文件共享工具。Swift + SwiftUI + Network.framework �
 ## 功能
 
 - 一键启动/停止 HTTP 共享服务，端口被占用时自动顺延
-- 浏览器端：目录浏览、下载（支持 Range 断点）、拖拽/多文件上传（带进度）、新建文件夹、删除（进废纸篓，可恢复）
+- 文件：目录浏览、下载（支持 Range 断点）、拖拽/多文件上传（带进度）、新建文件夹、删除（进废纸篓，可恢复）
+- 文本：网页端直接粘贴文字共享，任何设备可查看、一键复制回剪贴板、下载为 .txt；持久化到 Application Support，跨重启保留
 - 局域网地址自动检测，一键复制 / 打开，二维码供手机扫码
 - 可选 4 位访问码（Cookie 会话）；上传、删除可独立开关
 - 活动日志与上行/下行流量统计
@@ -58,7 +59,7 @@ sudo rm /Library/Developer/CommandLineTools/usr/include/swift/module.modulemap
 Sources/EZShare/
 ├── EZShareApp.swift      # App 入口 + headless 模式
 ├── AppModel.swift        # 状态与配置持久化
-├── Core/                 # 路径解析、网卡检测、MIME、配置存储
+├── Core/                 # 路径解析、网卡检测、MIME、文本存储、配置存储
 ├── Net/                  # HTTP 服务、路由、网页（内嵌 CSS/JS，无外部资源）
 └── Views/                # SwiftUI 界面
 tools/make-icon.swift     # 图标生成器

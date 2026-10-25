@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var logs: [AccessLog] = []
     @Published private(set) var stats = TransferStats()
     @Published private(set) var folderItemCount = 0
+    @Published private(set) var textCount = 0
     @Published private(set) var statusText = "未启动"
 
     @Published var shareDirectory: URL {
@@ -32,6 +33,7 @@ final class AppModel: ObservableObject {
             UserDefaults.standard.set(shareDirectory.path, forKey: Keys.sharePath)
             syncConfig()
             refreshFolderInfo()
+            refreshTextCount()
         }
     }
 
@@ -98,6 +100,7 @@ final class AppModel: ObservableObject {
 
         refreshAddresses()
         refreshFolderInfo()
+        refreshTextCount()
     }
 
     // MARK: - 派生状态
@@ -258,5 +261,9 @@ final class AppModel: ObservableObject {
             options: [.skipsHiddenFiles]
         )) ?? []
         folderItemCount = contents.count
+    }
+
+    func refreshTextCount() {
+        textCount = TextStore.shared.count
     }
 }

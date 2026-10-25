@@ -61,6 +61,8 @@ enum WebUI {
 
     private static let downloadIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v10"/><path d="M8 11l4 3.5 4-3.5"/><path d="M5 18.5h14"/></svg>"#
     private static let trashIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 7h14.4"/><path d="M9.4 7V5.4a1.4 1.4 0 0 1 1.4-1.4h2.4a1.4 1.4 0 0 1 1.4 1.4V7"/><path d="M6.6 7l.8 11.2a1.8 1.8 0 0 0 1.8 1.6h5.6a1.8 1.8 0 0 0 1.8-1.6L17.4 7"/></svg>"#
+    private static let copyIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.2"/><path d="M5.5 14.5A1.8 1.8 0 0 1 4 12.7V5.8A1.8 1.8 0 0 1 5.8 4h6.9a1.8 1.8 0 0 1 1.8 1.5"/></svg>"#
+    private static let refreshIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12a7 7 0 1 1-2-4.9"/><path d="M19 4.5V8h-3.5"/></svg>"#
     private static let searchIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.2"/><path d="M16 16l3.4 3.4"/></svg>"#
     private static let plusIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>"#
     private static let uploadIcon = #"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"/><path d="M7.8 9.2L12 5l4.2 4.2"/><path d="M5 18.5h14"/></svg>"#
@@ -91,14 +93,20 @@ enum WebUI {
         """
     }
 
-    private static func topbar(shareName: String) -> String {
-        """
+    private static func topbar(shareName: String, active: String) -> String {
+        let filesTab = active == "files" ? "tab active" : "tab"
+        let textTab = active == "text" ? "tab active" : "tab"
+        return """
         <header class="topbar"><div class="topbar-inner">
         <div class="brand">
         <span class="mark">\(brandMark)</span>
         <span class="title">EZShare</span>
         <span class="sub">\(esc(shareName))</span>
         </div>
+        <nav class="tabs">
+        <a class="\(filesTab)" href="/">文件</a>
+        <a class="\(textTab)" href="/text">文本</a>
+        </nav>
         <span class="spacer"></span>
         <span class="chip"><span class="dot"></span>局域网共享中</span>
         </div></header>
@@ -150,7 +158,7 @@ enum WebUI {
         let countText = isEmpty ? "空目录" : "\(entries.count) 个项目"
 
         let content = """
-        \(topbar(shareName: settings.shareName))
+        \(topbar(shareName: settings.shareName, active: "files"))
         <main>
         <nav class="crumbs">\(crumbs)</nav>
         <div class="panel">
@@ -214,6 +222,83 @@ enum WebUI {
         <td class="time">\(dateText(entry.modified))</td>
         <td class="actions">\(actions)</td>
         </tr>
+        """
+    }
+
+    // MARK: - 文本共享页
+
+    static func textPage(snippets: [TextSnippet], settings: ShareSettings) -> String {
+        let listBody: String
+        if snippets.isEmpty {
+            listBody = """
+            <div class="empty">\(emptyIcon)<h3>还没有共享的文本</h3><p>\(settings.allowUpload ? "在上方粘贴文字后点击发送" : "共享端未开启写入，仅可查看与复制")</p></div>
+            """
+        } else {
+            let rows = snippets.map { snippetRow($0, allowDelete: settings.allowDelete) }.joined()
+            listBody = """
+            <div class="snippets">\(rows)</div>
+            """
+        }
+
+        let composer: String
+        if settings.allowUpload {
+            composer = """
+            <div class="panel composer">
+            <textarea id="text-input" placeholder="粘贴或输入要共享的文本，局域网内任何设备都能查看、复制…（⌘+Enter 发送）"></textarea>
+            <div class="composer-foot">
+            <span class="count" id="text-chars">0 字符</span>
+            <span class="spacer"></span>
+            <button class="btn primary" id="btn-text-send">\(uploadIcon)发送到共享</button>
+            </div>
+            </div>
+            """
+        } else {
+            composer = ""
+        }
+
+        let content = """
+        \(topbar(shareName: settings.shareName, active: "text"))
+        <main>
+        \(composer)
+        <div class="panel" style="margin-top:14px">
+        <div class="toolbar">
+        <span class="count" id="text-count">\(snippets.count) 条文本</span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="btn-text-refresh">\(refreshIcon)刷新</button>
+        </div>
+        \(listBody)
+        </div>
+        </main>
+        \(footer())
+        """
+
+        return shell(
+            title: "文本 · \(settings.shareName) · EZShare",
+            bodyAttributes: "data-text=\"1\"",
+            content: content,
+            includeScript: true
+        )
+    }
+
+    private static func snippetRow(_ snippet: TextSnippet, allowDelete: Bool) -> String {
+        var actions = "<a class=\"btn ghost icon act\" href=\"/api/text/download?id=\(snippet.id.urlEncoded)\" title=\"下载为 txt\">\(downloadIcon)</a>"
+        actions += "<button class=\"btn ghost icon act\" data-textcopy=\"\(snippet.id)\" title=\"复制内容\">\(copyIcon)</button>"
+        if allowDelete {
+            actions += "<button class=\"btn ghost icon act\" data-textdel=\"\(snippet.id)\" title=\"删除\">\(trashIcon)</button>"
+        }
+
+        let preview = snippet.content.count > 20_000 ? String(snippet.content.prefix(20_000)) + "\n…（内容过长，仅显示前 2 万字符，下载可获取完整内容）" : snippet.content
+
+        return """
+        <div class="snippet" data-id="\(snippet.id)">
+        <div class="s-head">
+        <span>\(dateText(snippet.createdAt))</span>
+        <span>\(sizeText(Int64(snippet.content.utf8.count)))</span>
+        <span class="spacer"></span>
+        \(actions)
+        </div>
+        <div class="s-body">\(esc(preview))</div>
+        </div>
         """
     }
 
