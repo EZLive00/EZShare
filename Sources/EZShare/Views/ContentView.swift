@@ -459,7 +459,7 @@ struct ContentView: View {
                         .controlSize(.mini)
                 }
 
-                SettingRow(title: "访问码", subtitle: "进入前需输入 4 位数字") {
+                SettingRow(title: "访问码", subtitle: "进入前需输入 6 位字母数字") {
                     Toggle("", isOn: $model.requireCode)
                         .labelsHidden()
                         .toggleStyle(.switch)
@@ -471,7 +471,7 @@ struct ContentView: View {
                         TextField("访问码", text: $model.accessCode)
                             .textFieldStyle(.roundedBorder)
                             .multilineTextAlignment(.center)
-                            .frame(width: 76)
+                            .frame(width: 96)
                         SoftButton(title: "随机生成", symbol: "dice") { model.randomizeCode() }
                         Spacer(minLength: 0)
                     }

@@ -311,7 +311,7 @@ enum WebUI {
         <div class="mark">\(brandMark)</div>
         <h1>\(esc(shareName))</h1>
         <p>此共享需要访问码</p>
-        <input type="password" name="code" inputmode="numeric" autocomplete="off" placeholder="••••" autofocus>
+        <input type="password" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="••••••" autofocus>
         \(errorLine)
         <button type="submit">进入共享</button>
         </form></div>

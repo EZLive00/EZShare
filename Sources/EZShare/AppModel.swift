@@ -96,7 +96,9 @@ final class AppModel: ObservableObject {
         let deletion = defaults.object(forKey: Keys.allowDelete) as? Bool ?? false
         let protection = defaults.bool(forKey: Keys.requireCode)
         let savedCode = defaults.string(forKey: Keys.accessCode) ?? ""
-        let code = savedCode.isEmpty ? String(format: "%04d", Int.random(in: 0...9999)) : savedCode
+        // 旧版本的 4 位数字码自动升级为 6 位字母数字混合码
+        let isLegacyNumeric = savedCode.count == 4 && savedCode.allSatisfy(\.isNumber)
+        let code = savedCode.isEmpty || isLegacyNumeric ? Self.generateCode() : savedCode
         let savedPort = defaults.integer(forKey: Keys.port)
         let chosenPort = savedPort == 0 ? 8080 : savedPort
 
@@ -139,6 +141,19 @@ final class AppModel: ObservableObject {
     }
 
     var hasAddress: Bool { !addresses.isEmpty }
+
+    /// 生成 6 位字母数字混合访问码。
+    /// 剔除易混淆字符（0/O/o、1/l/I），并保证字母和数字至少各含一个。
+    private static func generateCode() -> String {
+        let digits = Array("23456789")
+        let letters = Array("abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ")
+        let alphabet = digits + letters
+        var code: String
+        repeat {
+            code = String((0..<6).map { _ in alphabet.randomElement()! })
+        } while !code.contains(where: digits.contains) || !code.contains(where: letters.contains)
+        return code
+    }
 
     // MARK: - 控制
 
@@ -212,7 +227,7 @@ final class AppModel: ObservableObject {
     }
 
     func randomizeCode() {
-        accessCode = String(format: "%04d", Int.random(in: 0...9999))
+        accessCode = Self.generateCode()
     }
 
     // MARK: - 内部
