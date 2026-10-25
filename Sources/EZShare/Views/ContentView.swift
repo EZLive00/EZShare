@@ -12,6 +12,9 @@ struct ContentView: View {
 
             VStack(spacing: 14) {
                 header
+                if model.localNetworkStatus == .denied {
+                    permissionBanner
+                }
                 HStack(alignment: .top, spacing: 14) {
                     VStack(spacing: 14) {
                         folderCard
@@ -88,6 +91,39 @@ struct ContentView: View {
         guard model.isRunning else { return Palette.idle }
         if model.statusText.hasPrefix("端口") { return Palette.warning }
         return Palette.running
+    }
+
+    // MARK: - 本地网络权限
+
+    private var permissionBanner: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.danger)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("本地网络权限被拒绝")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("其他设备可能无法访问共享服务。请到 系统设置 → 隐私与安全性 → 本地网络 中开启 EZShare，然后重新检测。")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 10)
+
+            SoftButton(title: "重新检测", symbol: "arrow.clockwise") { model.probeLocalNetwork() }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Palette.danger.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(Palette.danger.opacity(0.25), lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - 共享目录

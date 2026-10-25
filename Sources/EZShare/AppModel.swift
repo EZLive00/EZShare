@@ -27,6 +27,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var folderItemCount = 0
     @Published private(set) var textCount = 0
     @Published private(set) var statusText = "未启动"
+    @Published private(set) var localNetworkStatus: LocalNetworkPermission.Status = .unknown
 
     @Published var shareDirectory: URL {
         didSet {
@@ -101,6 +102,7 @@ final class AppModel: ObservableObject {
         refreshAddresses()
         refreshFolderInfo()
         refreshTextCount()
+        probeLocalNetwork()
     }
 
     // MARK: - 派生状态
@@ -133,6 +135,7 @@ final class AppModel: ObservableObject {
     func start() {
         guard !isRunning, !isStarting else { return }
         syncConfig()
+        probeLocalNetwork()
 
         let router = Router(config: config)
         let server = HTTPServer(router: router)
@@ -265,5 +268,14 @@ final class AppModel: ObservableObject {
 
     func refreshTextCount() {
         textCount = TextStore.shared.count
+    }
+
+    /// 触发系统「本地网络」授权弹窗并探测权限状态（结果主线程回调）。
+    func probeLocalNetwork() {
+        localNetworkStatus = .checking
+        LocalNetworkPermission.triggerPrompt()
+        LocalNetworkPermission.check { [weak self] status in
+            self?.localNetworkStatus = status == .checking ? .unknown : status
+        }
     }
 }
