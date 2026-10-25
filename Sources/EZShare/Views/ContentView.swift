@@ -6,6 +6,8 @@ struct ContentView: View {
 
     private let refreshTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
     @State private var contentTab = 0
+    @State private var toastText: String?
+    @State private var toastHideTask: DispatchWorkItem?
 
     var body: some View {
         ZStack {
@@ -35,6 +37,8 @@ struct ContentView: View {
             .padding(.bottom, 18)
         }
         .frame(minWidth: 940, minHeight: 640)
+        .overlay(alignment: .bottom) { toastOverlay }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: toastText)
         .onAppear {
             model.refreshAddresses()
             model.refreshContent()
@@ -45,6 +49,49 @@ struct ContentView: View {
             }
             model.refreshContent()
         }
+    }
+
+    // MARK: - Toast / 复制
+
+    private var toastOverlay: some View {
+        Group {
+            if let toastText {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Palette.running)
+                    Text(toastText)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.96))
+                        .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 5)
+                        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
+                )
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 1))
+                .padding(.bottom, 22)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func showToast(_ text: String) {
+        toastText = text
+        toastHideTask?.cancel()
+        let task = DispatchWorkItem {
+            withAnimation(.easeOut(duration: 0.25)) { toastText = nil }
+        }
+        toastHideTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6, execute: task)
+    }
+
+    private func copyToClipboard(_ text: String, feedback: String) {
+        model.copy(text)
+        showToast(feedback)
     }
 
     // MARK: - 顶部
@@ -223,7 +270,7 @@ struct ContentView: View {
                 .textSelection(.enabled)
                 .lineLimit(1)
             Spacer(minLength: 6)
-            MiniButton(symbol: "doc.on.doc", help: "复制地址") { model.copy(url) }
+            MiniButton(symbol: "doc.on.doc", help: "复制地址") { copyToClipboard(url, feedback: "地址已复制") }
             MiniButton(symbol: "safari", help: "在浏览器中打开") { model.openInBrowser(url) }
         }
         .padding(.horizontal, 10)
@@ -362,7 +409,7 @@ struct ContentView: View {
             Spacer(minLength: 6)
 
             VStack(spacing: 2) {
-                MiniButton(symbol: "doc.on.doc", help: "复制全文") { model.copySnippet(snippet) }
+                MiniButton(symbol: "doc.on.doc", help: "复制全文") { copyToClipboard(snippet.content, feedback: "文本已复制") }
                 MiniButton(symbol: "trash", help: "删除") { model.deleteSnippet(snippet) }
             }
         }
