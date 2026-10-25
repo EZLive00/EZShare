@@ -8,6 +8,16 @@ struct TransferStats {
     var bytesIn: Int64 = 0
 }
 
+/// 共享目录中的一个条目（供原生界面浏览）。
+struct ShareEntry: Identifiable, Equatable {
+    let id: String          // 相对路径
+    let name: String
+    let relativePath: String
+    let isDirectory: Bool
+    let size: Int64
+    let modified: Date
+}
+
 final class AppModel: ObservableObject {
     private enum Keys {
         static let sharePath = "sharePath"
@@ -28,13 +38,21 @@ final class AppModel: ObservableObject {
     @Published private(set) var textCount = 0
     @Published private(set) var statusText = "未启动"
     @Published private(set) var localNetworkStatus: LocalNetworkPermission.Status = .unknown
+    @Published private(set) var fileEntries: [ShareEntry] = []
+    @Published private(set) var snippets: [TextSnippet] = []
+
+    /// 原生界面的当前浏览子目录（相对共享目录，空 = 根）。
+    @Published var browsePath: String = "" {
+        didSet { refreshFileEntries() }
+    }
 
     @Published var shareDirectory: URL {
         didSet {
             UserDefaults.standard.set(shareDirectory.path, forKey: Keys.sharePath)
             syncConfig()
             refreshFolderInfo()
-            refreshTextCount()
+            browsePath = ""
+            refreshContent()
         }
     }
 
@@ -101,7 +119,7 @@ final class AppModel: ObservableObject {
 
         refreshAddresses()
         refreshFolderInfo()
-        refreshTextCount()
+        refreshContent()
         probeLocalNetwork()
     }
 
@@ -268,6 +286,79 @@ final class AppModel: ObservableObject {
 
     func refreshTextCount() {
         textCount = TextStore.shared.count
+    }
+
+    // MARK: - 共享内容浏览（原生界面）
+
+    func refreshContent() {
+        refreshFileEntries()
+        snippets = TextStore.shared.list()
+        refreshTextCount()
+    }
+
+    private func refreshFileEntries() {
+        let base = browsePath.isEmpty
+            ? shareDirectory
+            : shareDirectory.appendingPathComponent(browsePath, isDirectory: true)
+        let items = (try? FileManager.default.contentsOfDirectory(
+            at: base,
+            includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        let entries: [ShareEntry] = items.map { url in
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
+            let relative = browsePath.isEmpty
+                ? url.lastPathComponent
+                : browsePath + "/" + url.lastPathComponent
+            return ShareEntry(
+                id: relative,
+                name: url.lastPathComponent,
+                relativePath: relative,
+                isDirectory: values?.isDirectory ?? false,
+                size: Int64(values?.fileSize ?? 0),
+                modified: values?.contentModificationDate ?? Date()
+            )
+        }
+        .sorted { a, b in
+            if a.isDirectory != b.isDirectory { return a.isDirectory }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+        if entries != fileEntries { fileEntries = entries }
+    }
+
+    func url(for entry: ShareEntry) -> URL {
+        shareDirectory.appendingPathComponent(entry.relativePath)
+    }
+
+    func openEntry(_ entry: ShareEntry) {
+        if entry.isDirectory {
+            browsePath = entry.relativePath
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([url(for: entry)])
+        }
+    }
+
+    func revealEntry(_ entry: ShareEntry) {
+        NSWorkspace.shared.activateFileViewerSelecting([url(for: entry)])
+    }
+
+    func goUp() {
+        let parts = browsePath.split(separator: "/").map(String.init)
+        browsePath = parts.dropLast().joined(separator: "/")
+    }
+
+    var browseDisplayName: String {
+        let parts = browsePath.split(separator: "/").map(String.init)
+        return parts.last ?? shareName
+    }
+
+    func copySnippet(_ snippet: TextSnippet) {
+        copy(snippet.content)
+    }
+
+    func deleteSnippet(_ snippet: TextSnippet) {
+        _ = TextStore.shared.remove(id: snippet.id)
+        refreshContent()
     }
 
     /// 触发系统「本地网络」授权弹窗并探测权限状态（结果主线程回调）。

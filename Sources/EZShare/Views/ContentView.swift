@@ -4,7 +4,8 @@ import AppKit
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
 
-    private let refreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    private let refreshTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+    @State private var contentTab = 0
 
     var body: some View {
         ZStack {
@@ -19,7 +20,7 @@ struct ContentView: View {
                     VStack(spacing: 14) {
                         folderCard
                         addressCard
-                        Spacer(minLength: 0)
+                        contentCard
                     }
                     VStack(spacing: 14) {
                         settingsCard
@@ -36,13 +37,13 @@ struct ContentView: View {
         .frame(minWidth: 940, minHeight: 640)
         .onAppear {
             model.refreshAddresses()
-            model.refreshTextCount()
+            model.refreshContent()
         }
         .onReceive(refreshTimer) { _ in
             if model.isRunning {
                 model.refreshAddresses()
-                model.refreshTextCount()
             }
+            model.refreshContent()
         }
     }
 
@@ -246,6 +247,152 @@ struct ContentView: View {
                 .fill(Color.primary.opacity(0.045))
         )
     }
+
+    // MARK: - 共享内容
+
+    private var contentCard: some View {
+        Card(
+            "共享内容",
+            systemImage: "square.grid.2x2",
+            trailing: AnyView(
+                Picker("", selection: $contentTab) {
+                    Text("文件").tag(0)
+                    Text("文本").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 128)
+            )
+        ) {
+            VStack(spacing: 8) {
+                if contentTab == 0 { fileBrowser } else { snippetList }
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private var fileBrowser: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                if !model.browsePath.isEmpty {
+                    MiniButton(symbol: "chevron.left", help: "上一级") { model.goUp() }
+                }
+                Text(model.browseDisplayName)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                Spacer(minLength: 6)
+                ValueChip(text: "\(model.fileEntries.count) 项")
+            }
+            .padding(.bottom, 8)
+
+            if model.fileEntries.isEmpty {
+                VStack(spacing: 5) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 18, weight: .light))
+                        .foregroundStyle(.tertiary)
+                    Text("这个目录是空的")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 22)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(model.fileEntries) { entry in
+                            fileRow(entry)
+                            Divider().opacity(0.35)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func fileRow(_ entry: ShareEntry) -> some View {
+        HStack(spacing: 9) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: model.url(for: entry).path))
+                .resizable()
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.name)
+                    .font(.system(size: 12.5, weight: entry.isDirectory ? .semibold : .regular))
+                    .lineLimit(1)
+                Text("\(entry.isDirectory ? "文件夹" : bytesText(entry.size)) · \(dateText(entry.modified))")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 6)
+
+            MiniButton(symbol: "arrow.up.forward.app", help: "在访达中显示") {
+                model.revealEntry(entry)
+            }
+        }
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+        .onTapGesture { model.openEntry(entry) }
+    }
+
+    private var snippetList: some View {
+        VStack(spacing: 0) {
+            if model.snippets.isEmpty {
+                VStack(spacing: 5) {
+                    Image(systemName: "text.bubble")
+                        .font(.system(size: 18, weight: .light))
+                        .foregroundStyle(.tertiary)
+                    Text("还没有共享的文本")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 22)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(model.snippets, id: \.id) { snippet in
+                            snippetRow(snippet)
+                            Divider().opacity(0.35)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func snippetRow(_ snippet: TextSnippet) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(snippet.content.replacingOccurrences(of: "\n", with: " "))
+                    .font(.system(size: 11.5))
+                    .lineLimit(2)
+                Text("\(dateText(snippet.createdAt)) · \(snippet.content.count) 字符")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 6)
+
+            VStack(spacing: 2) {
+                MiniButton(symbol: "doc.on.doc", help: "复制全文") { model.copySnippet(snippet) }
+                MiniButton(symbol: "trash", help: "删除") { model.deleteSnippet(snippet) }
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func dateText(_ date: Date) -> String {
+        Self.dateFormatter.string(from: date)
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "MM-dd HH:mm"
+        return formatter
+    }()
 
     // MARK: - 设置
 
