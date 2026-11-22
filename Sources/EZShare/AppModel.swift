@@ -371,6 +371,47 @@ final class AppModel: ObservableObject {
         copy(snippet.content)
     }
 
+    /// 从原生界面发送文本到共享。
+    @discardableResult
+    func sendText(_ raw: String) -> Bool {
+        guard TextStore.shared.add(raw) != nil else { return false }
+        refreshContent()
+        return true
+    }
+
+    /// 把文件/文件夹复制进当前浏览的共享子目录；重名自动加 "(1)"。
+    @discardableResult
+    func addFiles(_ sources: [URL]) -> Int {
+        let directory = browsePath.isEmpty
+            ? shareDirectory
+            : shareDirectory.appendingPathComponent(browsePath, isDirectory: true)
+        var added = 0
+        let fm = FileManager.default
+        for source in sources {
+            guard let name = PathResolver.sanitizeName(source.lastPathComponent) else { continue }
+            let target = PathResolver.uniqueURL(for: name, in: directory)
+            guard (try? fm.copyItem(at: source, to: target)) != nil else { continue }
+            added += 1
+        }
+        if added > 0 { refreshContent() }
+        return added
+    }
+
+    /// 弹出文件选择面板，把选中的文件添加到当前共享目录。返回成功添加的数量。
+    @discardableResult
+    func chooseFilesToShare() -> Int {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = "添加到共享"
+        panel.message = "选择要发送到共享目录的文件"
+        if panel.runModal() == .OK {
+            return addFiles(panel.urls)
+        }
+        return 0
+    }
+
     func deleteSnippet(_ snippet: TextSnippet) {
         _ = TextStore.shared.remove(id: snippet.id)
         refreshContent()

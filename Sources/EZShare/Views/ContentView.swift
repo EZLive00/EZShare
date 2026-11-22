@@ -8,6 +8,8 @@ struct ContentView: View {
     @State private var contentTab = 0
     @State private var toastText: String?
     @State private var toastHideTask: DispatchWorkItem?
+    @State private var draftText = ""
+    @State private var isDropTarget = false
 
     var body: some View {
         ZStack {
@@ -314,8 +316,19 @@ struct ContentView: View {
                     .truncationMode(.head)
                 Spacer(minLength: 6)
                 ValueChip(text: "\(model.fileEntries.count) 项")
+                SoftButton(title: "添加文件", symbol: "plus") {
+                    let count = model.chooseFilesToShare()
+                    if count > 0 {
+                        showToast(count == 1 ? "已添加 1 个文件" : "已添加 \(count) 个文件")
+                    }
+                }
             }
             .padding(.bottom, 8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Palette.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .opacity(isDropTarget ? 1 : 0)
+            )
 
             if model.fileEntries.isEmpty {
                 VStack(spacing: 5) {
@@ -338,6 +351,26 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
+            var collected: [URL] = []
+            let group = DispatchGroup()
+            for provider in providers {
+                group.enter()
+                _ = provider.loadObject(ofClass: NSURL.self) { object, _ in
+                    DispatchQueue.main.async {
+                        if let url = object as? URL { collected.append(url) }
+                        group.leave()
+                    }
+                }
+            }
+            group.notify(queue: .main) {
+                let count = model.addFiles(collected)
+                if count > 0 {
+                    showToast(count == 1 ? "已添加 1 个文件" : "已添加 \(count) 个文件")
+                }
+            }
+            return true
         }
     }
 
@@ -370,7 +403,8 @@ struct ContentView: View {
     }
 
     private var snippetList: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
+            textComposer
             if model.snippets.isEmpty {
                 VStack(spacing: 5) {
                     Image(systemName: "text.bubble")
@@ -392,6 +426,48 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var textComposer: some View {
+        VStack(spacing: 6) {
+            ZStack(alignment: .topLeading) {
+                if draftText.isEmpty {
+                    Text("粘贴或输入要共享的文本…")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 5)
+                        .padding(.top, 7)
+                }
+                TextEditor(text: $draftText)
+                    .font(.system(size: 11.5))
+                    .frame(height: 58)
+                    .scrollContentBackground(.hidden)
+            }
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(0.045))
+            )
+
+            HStack(spacing: 6) {
+                Text("\(draftText.count) 字符")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 6)
+                SoftButton(title: "发送到共享", symbol: "paperplane") { sendDraft() }
+            }
+        }
+    }
+
+    private func sendDraft() {
+        let text = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        if model.sendText(text) {
+            draftText = ""
+            showToast("文本已发送")
+        } else {
+            showToast("发送失败：内容为空或超过 1MB")
         }
     }
 

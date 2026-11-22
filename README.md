@@ -6,9 +6,10 @@ macOS 原生局域网文件共享工具。Swift + SwiftUI + Network.framework �
 
 - 一键启动/停止 HTTP 共享服务，端口被占用时自动顺延
 - 文件：目录浏览、下载（支持 Range 断点）、拖拽/多文件上传（带进度）、新建文件夹、删除（进废纸篓，可恢复）
-- 文本：网页端直接粘贴文字共享，任何设备可查看、一键复制回剪贴板、下载为 .txt；持久化到 Application Support，跨重启保留
+- 文本：网页端或 Mac 原生界面均可发送；任何设备可查看、一键复制回剪贴板、下载为 .txt；持久化到 Application Support，跨重启保留
+- Mac 原生「共享内容」面板：浏览文件/文本、添加文件（文件选择或拖入）、发送文本、复制、删除
 - 局域网地址自动检测，一键复制 / 打开，二维码供手机扫码
-- 可选 4 位访问码（Cookie 会话）；上传、删除可独立开关
+- 可选 6 位字母数字混合访问码（Cookie 会话）；上传、删除可独立开关
 - 活动日志与上行/下行流量统计
 - 所有配置持久化到 UserDefaults
 
@@ -29,7 +30,7 @@ open build/EZShare.app
 App 内置 headless 服务，便于脚本或 CI 验证：
 
 ```bash
-./build/EZShare.app/Contents/MacOS/EZShare --headless --root ~/Downloads --port 8080 [--code 1234]
+./build/EZShare.app/Contents/MacOS/EZShare --headless --root ~/Downloads --port 8080 [--code K7mQ2x]
 ```
 
 ## 关于本机的工具链兼容性处理
