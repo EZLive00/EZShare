@@ -264,21 +264,19 @@ struct ContentView: View {
     }
 
     private func addressRow(_ url: String) -> some View {
-        HStack(spacing: 6) {
-            Text(url)
-                .font(.system(size: 12.5, design: .monospaced))
-                .textSelection(.enabled)
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            MiniButton(symbol: "doc.on.doc", help: "复制地址") { copyToClipboard(url, feedback: "地址已复制") }
-            MiniButton(symbol: "safari", help: "在浏览器中打开") { model.openInBrowser(url) }
+        HoverSurface(corner: 9, base: 0.045, hover: 0.09, pointer: false) { _ in
+            HStack(spacing: 6) {
+                Text(url)
+                    .font(.system(size: 12.5, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                MiniButton(symbol: "doc.on.doc", help: "复制地址") { copyToClipboard(url, feedback: "地址已复制") }
+                MiniButton(symbol: "safari", help: "在浏览器中打开") { model.openInBrowser(url) }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 34)
         }
-        .padding(.horizontal, 10)
-        .frame(height: 34)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.primary.opacity(0.045))
-        )
     }
 
     // MARK: - 共享内容
@@ -344,27 +342,29 @@ struct ContentView: View {
     }
 
     private func fileRow(_ entry: ShareEntry) -> some View {
-        HStack(spacing: 9) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: model.url(for: entry).path))
-                .resizable()
-                .frame(width: 26, height: 26)
+        HoverSurface(corner: 8, hover: 0.06) { _ in
+            HStack(spacing: 9) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: model.url(for: entry).path))
+                    .resizable()
+                    .frame(width: 26, height: 26)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(entry.name)
-                    .font(.system(size: 12.5, weight: entry.isDirectory ? .semibold : .regular))
-                    .lineLimit(1)
-                Text("\(entry.isDirectory ? "文件夹" : bytesText(entry.size)) · \(dateText(entry.modified))")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(entry.name)
+                        .font(.system(size: 12.5, weight: entry.isDirectory ? .semibold : .regular))
+                        .lineLimit(1)
+                    Text("\(entry.isDirectory ? "文件夹" : bytesText(entry.size)) · \(dateText(entry.modified))")
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 6)
+
+                MiniButton(symbol: "arrow.up.forward.app", help: "在访达中显示") {
+                    model.revealEntry(entry)
+                }
             }
-
-            Spacer(minLength: 6)
-
-            MiniButton(symbol: "arrow.up.forward.app", help: "在访达中显示") {
-                model.revealEntry(entry)
-            }
+            .padding(.vertical, 5)
         }
-        .padding(.vertical, 5)
         .contentShape(Rectangle())
         .onTapGesture { model.openEntry(entry) }
     }
@@ -396,24 +396,26 @@ struct ContentView: View {
     }
 
     private func snippetRow(_ snippet: TextSnippet) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(snippet.content.replacingOccurrences(of: "\n", with: " "))
-                    .font(.system(size: 11.5))
-                    .lineLimit(2)
-                Text("\(dateText(snippet.createdAt)) · \(snippet.content.count) 字符")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.secondary)
-            }
+        HoverSurface(corner: 8, hover: 0.06, pointer: false) { _ in
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(snippet.content.replacingOccurrences(of: "\n", with: " "))
+                        .font(.system(size: 11.5))
+                        .lineLimit(2)
+                    Text("\(dateText(snippet.createdAt)) · \(snippet.content.count) 字符")
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.secondary)
+                }
 
-            Spacer(minLength: 6)
+                Spacer(minLength: 6)
 
-            VStack(spacing: 2) {
-                MiniButton(symbol: "doc.on.doc", help: "复制全文") { copyToClipboard(snippet.content, feedback: "文本已复制") }
-                MiniButton(symbol: "trash", help: "删除") { model.deleteSnippet(snippet) }
+                VStack(spacing: 2) {
+                    MiniButton(symbol: "doc.on.doc", help: "复制全文") { copyToClipboard(snippet.content, feedback: "文本已复制") }
+                    MiniButton(symbol: "trash", help: "删除") { model.deleteSnippet(snippet) }
+                }
             }
+            .padding(.vertical, 6)
         }
-        .padding(.vertical, 6)
     }
 
     private func dateText(_ date: Date) -> String {

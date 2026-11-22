@@ -138,6 +138,33 @@ struct Card<Content: View>: View {
     }
 }
 
+/// 悬停反馈：背景色渐变 + 手型光标（macOS 13 兼容）。
+struct HoverSurface<Content: View>: View {
+    var corner: CGFloat = 8
+    var base: CGFloat = 0
+    var hover: CGFloat = 0.08
+    var pointer: Bool = true
+    @ViewBuilder var content: (Bool) -> Content
+
+    @State private var hovering = false
+
+    var body: some View {
+        content(hovering)
+            .background(
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? hover : base))
+            )
+            .onHover { active in
+                guard active != hovering else { return }
+                hovering = active
+                if pointer {
+                    if active { NSCursor.pointingHand.push() } else { NSCursor.pointingHand.pop() }
+                }
+            }
+            .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
 struct StatusPill: View {
     let text: String
     let color: Color
@@ -163,6 +190,8 @@ struct PrimaryActionButton: View {
     let isRunning: Bool
     let isBusy: Bool
     let action: () -> Void
+
+    @State private var hovering = false
 
     private var label: String {
         if isBusy { return "处理中…" }
@@ -203,7 +232,14 @@ struct PrimaryActionButton: View {
         }
         .buttonStyle(.plain)
         .disabled(isBusy)
-        .opacity(isBusy ? 0.7 : 1)
+        .opacity(isBusy ? 0.7 : (hovering ? 0.9 : 1))
+        .scaleEffect(hovering && !isBusy ? 1.02 : 1)
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .onHover { active in
+            guard active != hovering else { return }
+            hovering = active
+            if active { NSCursor.pointingHand.push() } else { NSCursor.pointingHand.pop() }
+        }
     }
 }
 
@@ -214,13 +250,15 @@ struct MiniButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 11, weight: .medium))
-                .frame(width: 24, height: 24)
-                .contentShape(Rectangle())
+            HoverSurface(corner: 6, hover: 0.09) { active in
+                Image(systemName: symbol)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(active ? Color.primary : Color.secondary)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
         .help(help)
     }
 }
@@ -266,6 +304,8 @@ struct SoftButton: View {
     var symbol: String?
     let action: () -> Void
 
+    @State private var hovering = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
@@ -280,13 +320,20 @@ struct SoftButton: View {
             .frame(height: 25)
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.primary.opacity(0.06))
+                    .fill(Color.primary.opacity(hovering ? 0.13 : 0.06))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.05), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(hovering ? 0.12 : 0.05), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
+        .foregroundStyle(hovering ? Color.primary : Color.secondary)
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .onHover { active in
+            guard active != hovering else { return }
+            hovering = active
+            if active { NSCursor.pointingHand.push() } else { NSCursor.pointingHand.pop() }
+        }
     }
 }
