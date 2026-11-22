@@ -151,6 +151,8 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
 .dialog p{margin:0 0 14px;color:var(--muted);font-size:13px;word-break:break-all}
 .dialog input{width:100%;height:36px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-soft);color:var(--text);outline:0}
 .dialog input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+.dialog textarea{width:100%;height:150px;resize:vertical;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-soft);color:var(--text);font:inherit;font-size:13px;line-height:1.5;outline:0;-webkit-user-select:text;user-select:text}
+.dialog textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
 .dialog .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 
 /* ---------- toast ---------- */
@@ -212,6 +214,61 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
     toastTimer = setTimeout(function () { t.classList.remove('on'); }, 2200);
   }
 
+  /* ---------- clipboard (HTTP 局域网兼容) ---------- */
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('contenteditable', 'true');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.width = '2px';
+    ta.style.height = '2px';
+    ta.style.padding = '0';
+    ta.style.border = 'none';
+    ta.style.opacity = '0';
+    ta.style.fontSize = '16px';
+    document.body.appendChild(ta);
+    var ok = false;
+    try {
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      ok = document.execCommand('copy');
+    } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function manualCopy(text) {
+    openModal(
+      '<h3>请手动复制</h3><p>当前浏览器不允许自动写入剪贴板，请长按下方文字选择“拷贝”。</p>' +
+      '<textarea id="manual-copy" spellcheck="false"></textarea>' +
+      '<div class="foot"><button class="btn ghost" data-cancel>关闭</button></div>',
+      null
+    );
+    var ta = $('#manual-copy');
+    if (ta) {
+      ta.value = text;
+      setTimeout(function () {
+        ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+      }, 60);
+    }
+  }
+
+  function copyText(text, okMsg) {
+    var msg = okMsg || '已复制';
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast(msg);
+      }).catch(function () {
+        if (legacyCopy(text)) toast(msg); else manualCopy(text);
+      });
+      return;
+    }
+    if (legacyCopy(text)) toast(msg); else manualCopy(text);
+  }
+
   /* ---------- modal helpers ---------- */
   var modal = $('#modal');
   var resolver = null;
@@ -227,11 +284,11 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
     var ok = box.querySelector('[data-ok]');
     var cancel = box.querySelector('[data-cancel]');
     function close() { modal.classList.remove('on'); modal.innerHTML = ''; }
-    function submit() { var v = input ? input.value : ''; close(); onOk(v); }
+    function submit() { var v = input ? input.value : ''; close(); if (onOk) onOk(v); }
     if (ok) ok.addEventListener('click', submit);
     if (cancel) cancel.addEventListener('click', close);
     box.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); submit(); }
       if (e.key === 'Escape') close();
     });
     modal.addEventListener('click', function (e) { if (e.target === modal) close(); }, { once: true });
@@ -391,8 +448,7 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
     var copy = e.target.closest('[data-copy]');
     if (copy) {
       var text = copy.getAttribute('data-copy');
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
-      toast('链接已复制');
+      copyText(text, '链接已复制');
     }
   });
 
@@ -454,17 +510,23 @@ footer .dot{width:4px;height:4px;border-radius:50%;background:currentColor;opaci
   document.addEventListener('click', function (e) {
     var tc = e.target.closest('[data-textcopy]');
     if (tc) {
-      var tid = tc.getAttribute('data-textcopy');
-      fetch('/api/text?id=' + encodeURIComponent(tid))
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-          if (res.ok && navigator.clipboard) {
-            navigator.clipboard.writeText(res.content);
-            toast('已复制到剪贴板');
-          } else {
-            toast(res.error || '复制失败');
-          }
-        });
+      var host = tc.closest('.snippet');
+      var body = host ? host.querySelector('.s-body') : null;
+      var visible = body ? body.textContent : '';
+      if (visible.length < 20000) {
+        // 同步复制，保留移动端浏览器的用户手势（HTTP 下 execCommand 仍可用）
+        copyText(visible, '已复制到剪贴板');
+      } else {
+        // 页面只渲染了前 2 万字符，长文本需取全文
+        var tid = tc.getAttribute('data-textcopy');
+        fetch('/api/text?id=' + encodeURIComponent(tid))
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res.ok) copyText(res.content, '已复制到剪贴板');
+            else toast(res.error || '复制失败');
+          })
+          .catch(function () { toast('复制失败，请检查网络'); });
+      }
       return;
     }
     var tdel = e.target.closest('[data-textdel]');
