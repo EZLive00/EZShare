@@ -28,7 +28,7 @@ struct ContentView: View {
                     }
                     VStack(spacing: 14) {
                         settingsCard
-                        activityCard
+                        Spacer(minLength: 0)
                     }
                     .frame(width: 356)
                 }
@@ -430,25 +430,24 @@ struct ContentView: View {
     }
 
     private var textComposer: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .topLeading) {
-                if draftText.isEmpty {
-                    Text("粘贴或输入要共享的文本…")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 5)
-                        .padding(.top, 7)
-                }
-                TextEditor(text: $draftText)
-                    .font(.system(size: 11.5))
-                    .frame(height: 58)
-                    .scrollContentBackground(.hidden)
-            }
-            .padding(4)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.primary.opacity(0.045))
-            )
+        VStack(alignment: .leading, spacing: 6) {
+            Text("发送文本")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            TextEditor(text: $draftText)
+                .font(.system(size: 12))
+                .frame(height: 62)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.primary.opacity(0.045))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                        )
+                )
 
             HStack(spacing: 6) {
                 Text("\(draftText.count) 字符")
@@ -558,118 +557,10 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - 活动
-
-    private var activityCard: some View {
-        Card(
-            "活动",
-            systemImage: "waveform.path.ecg",
-            trailing: AnyView(
-                HStack(spacing: 4) {
-                    ValueChip(text: "\(model.stats.requests) 次")
-                    MiniButton(symbol: "trash", help: "清空记录") { model.clearLogs() }
-                }
-            )
-        ) {
-            HStack(spacing: 16) {
-                statItem("下行", bytesText(model.stats.bytesOut), "arrow.down")
-                statItem("上行", bytesText(model.stats.bytesIn), "arrow.up")
-                Spacer(minLength: 0)
-            }
-
-            Divider().opacity(0.45)
-
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if model.logs.isEmpty {
-                        VStack(spacing: 6) {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 20, weight: .light))
-                                .foregroundStyle(.tertiary)
-                            Text(model.isRunning ? "等待局域网设备访问" : "启动共享后这里会显示访问记录")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 26)
-                    } else {
-                        ForEach(Array(model.logs.enumerated()), id: \.offset) { _, log in
-                            logRow(log)
-                            Divider().opacity(0.35)
-                        }
-                    }
-                }
-            }
-            .frame(maxHeight: .infinity)
-        }
-    }
-
-    private func statItem(_ title: String, _ value: String, _ symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 3) {
-                Image(systemName: symbol)
-                    .font(.system(size: 8.5, weight: .bold))
-                Text(title)
-                    .font(.system(size: 10))
-            }
-            .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-        }
-    }
-
-    private func logRow(_ log: AccessLog) -> some View {
-        HStack(spacing: 7) {
-            Text(timeText(log.time))
-                .font(.system(size: 9.5, design: .monospaced))
-                .foregroundStyle(.tertiary)
-            Text(log.method)
-                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Palette.accent)
-                .frame(width: 30, alignment: .leading)
-            Text(log.path)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 4)
-            if log.bytes > 0 {
-                Text(bytesText(log.bytes))
-                    .font(.system(size: 9.5, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-            }
-            Text("\(log.status)")
-                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(statusColor(log.status))
-        }
-        .padding(.vertical, 5)
-    }
-
-    private func statusColor(_ status: Int) -> Color {
-        switch status {
-        case 200..<300: return Palette.running
-        case 300..<400: return Palette.accent
-        case 400..<500: return Palette.warning
-        default: return Palette.danger
-        }
-    }
-
-    private func timeText(_ date: Date) -> String {
-        Self.clock.string(from: date)
-    }
-
     private func bytesText(_ bytes: Int64) -> String {
         if bytes <= 0 { return "0 B" }
         return Self.byteFormatter.string(fromByteCount: bytes)
     }
-
-    private static let clock: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter
-    }()
 
     private static let byteFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()

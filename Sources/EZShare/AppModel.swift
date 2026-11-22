@@ -2,12 +2,6 @@ import Foundation
 import AppKit
 import Combine
 
-struct TransferStats {
-    var requests: Int = 0
-    var bytesOut: Int64 = 0
-    var bytesIn: Int64 = 0
-}
-
 /// 共享目录中的一个条目（供原生界面浏览）。
 struct ShareEntry: Identifiable, Equatable {
     let id: String          // 相对路径
@@ -32,8 +26,6 @@ final class AppModel: ObservableObject {
     @Published private(set) var isStarting = false
     @Published private(set) var boundPort: Int
     @Published private(set) var addresses: [String] = []
-    @Published private(set) var logs: [AccessLog] = []
-    @Published private(set) var stats = TransferStats()
     @Published private(set) var folderItemCount = 0
     @Published private(set) var textCount = 0
     @Published private(set) var statusText = "未启动"
@@ -173,8 +165,6 @@ final class AppModel: ObservableObject {
         let router = Router(config: config)
         let server = HTTPServer(router: router)
         server.onState = { [weak self] state in self?.apply(state) }
-        server.onLog = { [weak self] log in self?.append(log) }
-        server.onTraffic = { [weak self] delta in self?.addTraffic(delta) }
         self.server = server
 
         isStarting = true
@@ -189,11 +179,6 @@ final class AppModel: ObservableObject {
         isRunning = false
         statusText = "已停止"
         boundPort = port
-    }
-
-    func clearLogs() {
-        logs.removeAll()
-        stats = TransferStats()
     }
 
     // MARK: - 目录
@@ -268,20 +253,6 @@ final class AppModel: ObservableObject {
             isRunning = false
             isStarting = false
             statusText = "启动失败：\(message)"
-        }
-    }
-
-    private func append(_ log: AccessLog) {
-        logs.insert(log, at: 0)
-        if logs.count > 60 { logs.removeLast(logs.count - 60) }
-        stats.requests += 1
-    }
-
-    private func addTraffic(_ delta: Int64) {
-        if delta >= 0 {
-            stats.bytesOut += delta
-        } else {
-            stats.bytesIn += -delta
         }
     }
 
